@@ -1,0 +1,123 @@
+{% extends 'builder/base.html' %}
+{% block title %}Preview: {{ form.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Preview: {{ form.name }}</h1>
+  <a href="{% url 'builder:builder' form.pk %}" class="btn btn-outline-primary btn-sm">Back to builder</a>
+</div>
+<div class="card" style="max-width: 720px;">
+  <div class="card-body">
+    {% if form.description %}<p class="text-muted">{{ form.description }}</p>{% endif %}
+    <form method="post" action="{% url 'builder:submit' form.pk %}" id="wizardForm" novalidate>
+      {% csrf_token %}
+      {% for page in pages %}
+      <div class="page-section" data-page="{{ forloop.counter0 }}" {% if not forloop.first %}style="display:none"{% endif %}>
+        {% if pages|length > 1 %}<h5 class="text-secondary mb-3">{{ page.title }}</h5>{% endif %}
+        {% for field in page.fields.all %}
+        <div class="mb-3">
+          {% if not field.is_heading %}<label class="form-label fw-semibold" for="id_{{ field.name|default:field.label }}">{{ field.label }}{% if field.required %} <span class="text-danger">*</span>{% endif %}</label>{% endif %}
+          {% with fname=field.name|default:field.label %}
+            {% if field.field_type == 'h1' %}<h1 class="{{ field.css_class }}">{{ field.label }}</h1>
+            {% elif field.field_type == 'h2' %}<h2 class="{{ field.css_class }}">{{ field.label }}</h2>
+            {% elif field.field_type == 'h3' %}<h3 class="{{ field.css_class }}">{{ field.label }}</h3>
+            {% elif field.field_type == 'h4' %}<h4 class="{{ field.css_class }}">{{ field.label }}</h4>
+            {% elif field.field_type == 'h5' %}<h5 class="{{ field.css_class }}">{{ field.label }}</h5>
+            {% elif field.field_type == 'h6' %}<h6 class="{{ field.css_class }}">{{ field.label }}</h6>
+            {% elif field.field_type == 'textarea' %}
+              <textarea class="form-control {{ field.css_class }}" id="id_{{ fname }}" name="{{ fname }}" rows="4" placeholder="{{ field.placeholder }}" {% if field.required %}required{% endif %}{% if field.max_length %} maxlength="{{ field.max_length }}"{% endif %}{% if field.min_length %} minlength="{{ field.min_length }}"{% endif %}>{{ field.default_value }}</textarea>
+            {% elif field.field_type == 'select' %}
+              <select class="form-select {{ field.css_class }}" id="id_{{ fname }}" name="{{ fname }}" {% if field.required %}required{% endif %}>
+                <option value="">---------</option>
+                {% for c in field.choice_list %}<option value="{{ c }}" {% if c == field.default_value %}selected{% endif %}>{{ c }}</option>{% endfor %}
+              </select>
+            {% elif field.field_type == 'radio' %}
+              {% for c in field.choice_list %}
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="{{ fname }}" id="id_{{ fname }}_{{ forloop.counter }}" value="{{ c }}" {% if c == field.default_value %}checked{% endif %} {% if field.required %}required{% endif %}>
+                <label class="form-check-label" for="id_{{ fname }}_{{ forloop.counter }}">{{ c }}</label>
+              </div>
+              {% endfor %}
+            {% elif field.field_type == 'checkbox' %}
+              {% for c in field.choice_list %}
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="{{ fname }}" id="id_{{ fname }}_{{ forloop.counter }}" value="{{ c }}">
+                <label class="form-check-label" for="id_{{ fname }}_{{ forloop.counter }}">{{ c }}</label>
+              </div>
+              {% endfor %}
+            {% elif field.field_type == 'file' %}
+              <input type="file" class="form-control {{ field.css_class }}" id="id_{{ fname }}" name="{{ fname }}" {% if field.required %}required{% endif %}>
+            {% elif field.field_type == 'hidden' %}
+              <input type="hidden" name="{{ fname }}" value="{{ field.default_value }}">
+            {% else %}
+              {% with itype=field.field_type %}
+              <input type="{% if itype == 'email' or itype == 'password' or itype == 'number' or itype == 'url' or itype == 'date' %}{{ itype }}{% else %}text{% endif %}" class="form-control {{ field.css_class }}" id="id_{{ fname }}" name="{{ fname }}" placeholder="{{ field.placeholder }}" value="{{ field.default_value }}" {% if field.required %}required{% endif %}{% if field.max_length %} maxlength="{{ field.max_length }}"{% endif %}{% if field.min_length %} minlength="{{ field.min_length }}"{% endif %}{% if field.field_type == 'number' %}{% if field.min_value is not None %} min="{{ field.min_value }}"{% endif %}{% if field.max_value is not None %} max="{{ field.max_value }}"{% endif %}{% endif %}>
+              {% endwith %}
+            {% endif %}
+          {% endwith %}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+
+      <div class="d-flex justify-content-between align-items-center mt-3">
+        <button type="button" class="btn btn-outline-secondary" id="prevBtn" style="display:none">&larr; Back</button>
+        <span class="text-muted small" id="pageIndicator"></span>
+        <button type="button" class="btn btn-primary" id="nextBtn">Next &rarr;</button>
+        <button type="submit" class="btn btn-primary" id="submitBtn" style="display:none">Submit</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var sections = Array.from(document.querySelectorAll('.page-section'));
+  var total = sections.length;
+  var current = 0;
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var submitBtn = document.getElementById('submitBtn');
+  var indicator = document.getElementById('pageIndicator');
+
+  function show(i) {
+    current = i;
+    sections.forEach(function (s, idx) {
+      s.style.display = idx === i ? '' : 'none';
+    });
+    prevBtn.style.display = i > 0 ? '' : 'none';
+    var isLast = i === total - 1;
+    nextBtn.style.display = isLast ? 'none' : '';
+    submitBtn.style.display = isLast ? '' : 'none';
+    indicator.textContent = total > 1 ? 'Page ' + (i + 1) + ' of ' + total : '';
+  }
+
+  function validateCurrent() {
+    var section = sections[current];
+    var controls = section.querySelectorAll('input, select, textarea');
+    for (var i = 0; i < controls.length; i++) {
+      var el = controls[i];
+      if (el.type === 'hidden') continue;
+      if (!el.checkValidity()) {
+        el.reportValidity();
+        el.focus();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  nextBtn.addEventListener('click', function () {
+    if (validateCurrent()) show(current + 1);
+  });
+  prevBtn.addEventListener('click', function () {
+    show(current - 1);
+  });
+  document.getElementById('wizardForm').addEventListener('submit', function (e) {
+    if (!validateCurrent()) e.preventDefault();
+  });
+
+  show(0);
+})();
+</script>
+{% endblock %}

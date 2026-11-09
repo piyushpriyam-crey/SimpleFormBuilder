@@ -1,0 +1,30 @@
+{% extends 'builder/base.html' %}
+{% block title %}My Forms{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="h3 mb-0">My Forms</h1>
+  <a href="{% url 'builder:create' %}" class="btn btn-primary">+ New Form</a>
+</div>
+
+{% if forms %}
+<div class="list-group">
+  {% for form in forms %}
+  <div class="list-group-item d-flex justify-content-between align-items-center">
+    <div>
+      <a href="{% url 'builder:builder' form.pk %}" class="fw-semibold text-decoration-none">{{ form.name }}</a>
+      {% if form.description %}<div class="text-muted small">{{ form.description }}</div>{% endif %}
+      <div class="text-muted small">{{ form.fields.count }} field(s) · updated {{ form.updated_at|date:"M d, Y H:i" }}</div>
+    </div>
+    <div class="btn-group">
+      <a href="{% url 'builder:builder' form.pk %}" class="btn btn-sm btn-outline-primary">Build</a>
+      <a href="{% url 'builder:preview' form.pk %}" class="btn btn-sm btn-outline-secondary">Preview</a>
+      <a href="{% url 'builder:submissions' form.pk %}" class="btn btn-sm btn-outline-info">Submissions</a>
+      <a href="{% url 'builder:delete' form.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">No forms yet. <a href="{% url 'builder:create' %}">Create your first form</a>.</div>
+{% endif %}
+{% endblock %}

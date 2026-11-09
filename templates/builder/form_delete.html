@@ -1,0 +1,19 @@
+{% extends 'builder/base.html' %}
+{% block title %}Delete {{ form.name }}{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card border-danger">
+      <div class="card-body">
+        <h1 class="h5">Delete "{{ form.name }}"?</h1>
+        <p class="text-muted">This will permanently delete the form, its fields and all submissions.</p>
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger">Delete</button>
+          <a href="{% url 'builder:list' %}" class="btn btn-link">Cancel</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

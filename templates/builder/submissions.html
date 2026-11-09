@@ -1,0 +1,26 @@
+{% extends 'builder/base.html' %}
+{% block title %}Submissions: {{ form.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h4 mb-0">Submissions: {{ form.name }}</h1>
+  <a href="{% url 'builder:list' %}" class="btn btn-outline-dark btn-sm">Back</a>
+</div>
+{% if submissions %}
+<div class="table-responsive">
+  <table class="table table-striped table-sm bg-white">
+    <thead><tr><th>#</th><th>Date</th><th>Data</th></tr></thead>
+    <tbody>
+      {% for s in submissions %}
+      <tr>
+        <td>{{ s.pk }}</td>
+        <td>{{ s.created_at|date:"M d, Y H:i" }}</td>
+        <td><code class="small">{{ s.data }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="alert alert-info">No submissions yet.</div>
+{% endif %}
+{% endblock %}

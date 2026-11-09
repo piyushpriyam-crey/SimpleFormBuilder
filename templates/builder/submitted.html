@@ -1,0 +1,13 @@
+{% extends 'builder/base.html' %}
+{% block title %}Submitted{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="alert alert-success">
+      <h1 class="h5">Thank you!</h1>
+      <p class="mb-0">Your submission for "{{ form.name }}" has been recorded.</p>
+    </div>
+    <a href="{% url 'builder:list' %}" class="btn btn-outline-primary btn-sm">Back to forms</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends 'builder/base.html' %}
+{% load static %}
+{% block title %}Build: {{ form.name }}{% endblock %}
+{% block extra_head %}
+<style>
+  .palette-item { cursor: grab; }
+  .palette-item:active { cursor: grabbing; }
+  .fb-field { cursor: pointer; }
+  .fb-field.selected { border-color: #0d6efd !important; box-shadow: 0 0 0 .2rem rgba(13,110,253,.15); }
+  .fb-field .drag-handle { cursor: grab; color: #adb5bd; }
+  #canvas { min-height: 300px; }
+  .ghost { opacity: .4; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-0">{{ form.name }}</h1>
+    <small class="text-muted">Drag fields from the palette into the canvas, click a field to configure it.</small>
+  </div>
+  <div class="btn-group">
+    <button id="saveBtn" class="btn btn-success">Save</button>
+    <a href="{% url 'builder:preview' form.pk %}" class="btn btn-outline-secondary" target="_blank">Preview</a>
+    <div class="btn-group">
+      <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">Download</button>
+      <ul class="dropdown-menu dropdown-menu-end">
+        <li><a class="dropdown-item" href="{% url 'builder:export_json' form.pk %}">JSON</a></li>
+        <li><a class="dropdown-item" href="{% url 'builder:export_django' form.pk %}">Django forms.py</a></li>
+        <li><a class="dropdown-item" href="{% url 'builder:export_html' form.pk %}">Standalone HTML</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="{% url 'builder:export_project' form.pk %}">Django project (.zip)</a></li>
+      </ul>
+    </div>
+    <a href="{% url 'builder:list' %}" class="btn btn-outline-dark">Back</a>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Palette -->
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-header fw-semibold">Field Palette</div>
+      <div class="card-body p-0" id="palette">
+        {% for header, items in field_groups %}
+        <div class="px-3 py-2 small fw-semibold text-uppercase text-muted bg-light border-bottom">{{ header }}</div>
+        <div class="list-group list-group-flush">
+          {% for value, label in items %}
+          <div class="list-group-item palette-item d-flex align-items-center" data-type="{{ value }}">
+            <span class="badge bg-secondary me-2">{{ value }}</span>{{ label }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas -->
+  <div class="col-md-5">
+    <div class="card">
+      <div class="card-header fw-semibold d-flex justify-content-between">
+        <span>Canvas</span>
+        <button id="clearBtn" class="btn btn-sm btn-outline-danger">Clear all</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom bg-light">
+          <span class="small text-muted">Page title:</span>
+          <input type="text" class="form-control form-control-sm" id="pageTitle" style="max-width: 220px;">
+          <button id="addPageBtn" class="btn btn-sm btn-outline-primary">+ Page</button>
+          <button id="delPageBtn" class="btn btn-sm btn-outline-danger">Delete page</button>
+        </div>
+        <div class="d-flex flex-wrap gap-1 px-3 py-2 border-bottom" id="pageTabs"></div>
+        <div class="p-3" id="canvas"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Config -->
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header fw-semibold">Field Configuration</div>
+      <div class="card-body" id="configPanel">
+        <p class="text-muted mb-0" id="noSelection">Select a field on the canvas to edit its properties.</p>
+        <form id="fieldConfig" class="d-none">
+          <div class="mb-2">
+            <label class="form-label">Label</label>
+            <input type="text" class="form-control" id="cfgLabel">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Field name</label>
+            <input type="text" class="form-control" id="cfgName" placeholder="auto-generated if blank">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Placeholder</label>
+            <input type="text" class="form-control" id="cfgPlaceholder">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Help text</label>
+            <input type="text" class="form-control" id="cfgHelpText">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Default value</label>
+            <input type="text" class="form-control" id="cfgDefault">
+          </div>
+          <div class="mb-2 form-check">
+            <input type="checkbox" class="form-check-input" id="cfgRequired">
+            <label class="form-check-label" for="cfgRequired">Required</label>
+          </div>
+          <div class="mb-2" id="lengthGroup">
+            <label class="form-label">Min length</label>
+            <input type="number" class="form-control" id="cfgMinLength" min="0">
+          </div>
+          <div class="mb-2" id="lengthGroup2">
+            <label class="form-label">Max length</label>
+            <input type="number" class="form-control" id="cfgMaxLength" min="0">
+          </div>
+          <div class="mb-2" id="rangeGroup" style="display:none">
+            <label class="form-label">Min value</label>
+            <input type="number" step="any" class="form-control" id="cfgMinValue">
+          </div>
+          <div class="mb-2" id="rangeGroup2" style="display:none">
+            <label class="form-label">Max value</label>
+            <input type="number" step="any" class="form-control" id="cfgMaxValue">
+          </div>
+          <div class="mb-2">
+            <label class="form-label">CSS classes</label>
+            <input type="text" class="form-control" id="cfgCssClass" placeholder="e.g. form-control-lg">
+          </div>
+          <div class="mb-2" id="choicesGroup">
+            <label class="form-label">Choices (one per line)</label>
+            <textarea class="form-control" id="cfgChoices" rows="4"></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-primary" id="applyConfig">Apply</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" id="deleteField">Delete field</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{% static 'builder/Sortable.min.js' %}"></script>
+<script>
+  window.FORM_ID = {{ form.pk }};
+  window.PAGES_JSON = {{ pages_json|safe }};
+  window.SAVE_URL = "{% url 'builder:save' form.pk %}";
+  window.CSRF_TOKEN = "{{ csrf_token }}";
+</script>
+<script src="{% static 'builder/builder.js' %}?v=4"></script>
+{% endblock %}
